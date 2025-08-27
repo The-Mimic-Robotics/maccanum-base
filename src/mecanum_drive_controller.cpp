@@ -2,29 +2,30 @@
 #include <math.h>
 
 // pin definitions for esp32 devkit
-// front left motor (motor 1)
+// pin definitions for esp32 devkit
+// front left motor (motor 1) - KEEP THESE (they're good)
 #define FL_RPWM 22
 #define FL_LPWM 23
 #define FL_R_EN 21
 #define FL_L_EN 19
 
-// front right motor (motor 2)
-#define FR_RPWM 25
-#define FR_LPWM 26
-#define FR_R_EN 32
-#define FR_L_EN 33
+// front right motor (motor 2) - KEEP THESE (they're good)
+#define FR_RPWM 32
+#define FR_LPWM 33
+#define FR_R_EN 34
+#define FR_L_EN 35
 
-// back left motor (motor 3)
-#define BL_RPWM 4
-#define BL_LPWM 0
-#define BL_R_EN 2
-#define BL_L_EN 15
+// back left motor (motor 3) - FIXED PINS
+#define BL_RPWM 16  // Was 4 - now using safe GPIO
+#define BL_LPWM 17  // Was 0 - now using safe GPIO
+#define BL_R_EN 5   // Was 2 - now using safe GPIO
+#define BL_L_EN 18  // Was 15 - now using safe GPIO
 
-// back right motor (motor 4)
-#define BR_RPWM 10
-#define BR_LPWM 11
-#define BR_R_EN 13
-#define BR_L_EN 9
+// back right motor (motor 4) - FIXED PINS  
+#define BR_RPWM 26  // Was 10 - now using safe GPIO
+#define BR_LPWM 25  // Was 11 - now using safe GPIO
+#define BR_R_EN 12  // Was 13 - now using safe GPIO
+#define BR_L_EN 13  // Was 9 - now using safe GPIO (GPIO 13 is actually okay for output)
 
 // pwm settings
 #define PWM_FREQUENCY 5000
@@ -254,7 +255,12 @@ void MecanumBase::move(float x, float y, float rotation) {
     // apply speeds to motors
     for (int i = 0; i < 4; i++) {
         if (motors[i] != nullptr) {
-            motors[i]->setSpeed(speeds[i]);
+            // flip right side motors (front right and back right)
+            if (i == FRONT_RIGHT || i == BACK_RIGHT) {
+                motors[i]->setSpeed(-speeds[i]);  // negate right side
+            } else {
+                motors[i]->setSpeed(speeds[i]);   // left side normal
+            }
         }
     }
 }
