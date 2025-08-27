@@ -9,10 +9,10 @@
 #define FL_L_EN 19
 
 // front right motor (motor 2)
-#define FR_RPWM 18
-#define FR_LPWM 5
-#define FR_R_EN 17
-#define FR_L_EN 16
+#define FR_RPWM 25
+#define FR_LPWM 26
+#define FR_R_EN 32
+#define FR_L_EN 33
 
 // back left motor (motor 3)
 #define BL_RPWM 4
@@ -21,10 +21,10 @@
 #define BL_L_EN 15
 
 // back right motor (motor 4)
-#define BR_RPWM 13
-#define BR_LPWM 12
-#define BR_R_EN 14
-#define BR_L_EN 27
+#define BR_RPWM 10
+#define BR_LPWM 11
+#define BR_R_EN 13
+#define BR_L_EN 9
 
 // pwm settings
 #define PWM_FREQUENCY 5000
