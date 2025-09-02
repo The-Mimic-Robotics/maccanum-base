@@ -54,7 +54,7 @@ void setup() {
     Serial.println("starting mecanum robot with twist control...");
     
     Serial.print("using kinematics method: ");
-    if (KINEMATICS_METHOD == SIMPLE) {
+    if (KINEMATICS_METHOD == COMPLEX) {
         Serial.println("simple");
     } else {
         Serial.println("complex (theta/power)");

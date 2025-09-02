@@ -4,26 +4,26 @@
 // pin definitions for esp32 devkit
 // pin definitions for esp32 devkit
 // front left motor (motor 1) - KEEP THESE (they're good)
-#define FL_RPWM 22
-#define FL_LPWM 23
+#define FL_RPWM 16
+#define FL_LPWM 17
 #define FL_R_EN 21
 #define FL_L_EN 19
 
 // front right motor (motor 2) - KEEP THESE (they're good)
-#define FR_RPWM 32
-#define FR_LPWM 33
+#define FR_RPWM 25
+#define FR_LPWM 26
 #define FR_R_EN 34
 #define FR_L_EN 35
 
 // back left motor (motor 3) - FIXED PINS
-#define BL_RPWM 16  // Was 4 - now using safe GPIO
-#define BL_LPWM 17  // Was 0 - now using safe GPIO
+#define BL_RPWM 22  // Was 4 - now using safe GPIO
+#define BL_LPWM 23 // Was 0 - now using safe GPIO
 #define BL_R_EN 5   // Was 2 - now using safe GPIO
 #define BL_L_EN 18  // Was 15 - now using safe GPIO
 
 // back right motor (motor 4) - FIXED PINS  
-#define BR_RPWM 26  // Was 10 - now using safe GPIO
-#define BR_LPWM 25  // Was 11 - now using safe GPIO
+#define BR_RPWM 33  // Was 10 - now using safe GPIO
+#define BR_LPWM 32  // Was 11 - now using safe GPIO
 #define BR_R_EN 12  // Was 13 - now using safe GPIO
 #define BR_L_EN 13  // Was 9 - now using safe GPIO (GPIO 13 is actually okay for output)
 
@@ -170,7 +170,7 @@ void MecanumBase::calculateWheelSpeedsSimple(float x, float y, float rotation, f
     // simple mecanum kinematics - fast and easy to understand
     // positive x = strafe right
     // positive y = forward  
-    // positive rotation = clockwise
+    // positive rotation = counter-clockwise (ROS2 standard)
     
     speeds[FRONT_LEFT] = y + x + rotation;
     speeds[FRONT_RIGHT] = y - x - rotation;
