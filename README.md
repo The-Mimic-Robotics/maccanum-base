@@ -1,8 +1,8 @@
 # Mecanum Robot Controller
 
-🤖 **ESP32-based mecanum wheel robot controller with advanced motor driver support and ROS2 integration**
+**ESP32-based mecanum wheel robot controller with advanced motor driver support and ROS2 integration**
 
-## 🎯 Project Overview
+##  Project Overview
 
 This project provides a complete **mecanum wheel robot control system** featuring:
 - **ESP32 DevKit** microcontroller with optimized GPIO configuration
@@ -42,7 +42,7 @@ Each motor driver requires:
 - **Motor Power**: Separate 24V supply for motors
 - **Motor Outputs**: Connect to your mecanum wheel motors
 
-## 🚀 Quick Start Guide
+##  Quick Start Guide
 
 ### 1. Hardware Setup
 1. Connect ESP32 to computer via USB
@@ -50,18 +50,8 @@ Each motor driver requires:
 3. Connect 24V power supply to motor drivers
 4. Attach mecanum wheel motors to driver outputs
 
-### 2. Flash the ESP32
-```bash
-# Using PlatformIO (Recommended)
-cd mecanum-base
-pio run --target upload
-pio device monitor  # Optional: View serial output
 
-# Using Arduino IDE
-# Open src/main.cpp and upload to ESP32 DevKit
-```
-
-### 3. Test Basic Functionality
+### 2. Test Basic Functionality
 ```bash
 # Run the simple test script (no dependencies)
 cd examples
@@ -197,28 +187,6 @@ python3 simple_twist_test.py COM3
 # q/e = rotate left/right    x = stop    quit = exit
 ```
 
-#### 2. **test_twist_commands.py** - Advanced Testing
-Enhanced testing with additional features:
-- Real-time command updates
-- Detailed status feedback  
-- Extended test patterns
-
-#### 3. **motor_test.cpp** - Hardware Validation
-Individual motor testing for hardware debugging:
-```cpp
-// Test each motor independently
-// Useful for identifying wiring issues or motor problems
-```
-
-### Debugging Serial Output
-The ESP32 provides detailed serial debugging:
-```
-starting mecanum robot with twist control...
-using kinematics method: simple
-robot ready - waiting for twist messages via UART
-expected format: TWIST,linear_x,linear_y,angular_z
-received: x=0.500, y=-0.200, rot=0.100
-```
 
 ## 🔄 Movement Mechanics
 
@@ -241,7 +209,7 @@ Circle:      linear_x=0.3,  linear_y=0.0,  angular_z=0.3
 - **Watchdog Timer**: Control loop runs at precise 20Hz
 - **Emergency Stop**: Send all-zero command to immediate stop
 
-## 🛠️ Configuration Options
+##  Configuration Options
 
 ### Switching Motor Drivers
 To migrate from BTS 7960 to Cytron drivers:
@@ -363,21 +331,6 @@ twist.angular.z → angular_z  (rotation)
 - [ ] Current sensing and protection
 - [ ] Autonomous navigation capabilities
 
-### Development Setup
-```bash
-# Clone the repository
-git clone <your-repo-url>
-cd mecanum-base
-
-# Install PlatformIO
-pip install platformio
-
-# Build and test
-pio run
-pio run --target upload
-python3 examples/simple_twist_test.py COM3
-```
-
 ### Code Style Guidelines
 - **C++**: Follow Arduino/ESP32 conventions
 - **Comments**: Document all significant algorithms
@@ -406,4 +359,6 @@ Include the following information:
 ---
 
  This controller provides the solid foundation you need for advanced robotic applications, from simple remote control to complex autonomous navigation systems.
+
+by: Achal Patel
 
