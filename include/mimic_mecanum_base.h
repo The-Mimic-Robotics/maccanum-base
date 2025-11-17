@@ -1,7 +1,26 @@
-#ifndef MECANUM_DRIVE_CONTROLLER_H
-#define MECANUM_DRIVE_CONTROLLER_H
+/*
+ * Mimic Mecanum Robot Base - Complete Control System
+ * 
+ * This file provides a comprehensive mecanum wheel robot platform with:
+ *   - Motor driver abstraction (BTS7960, Cytron dual-channel support)
+ *   - Hardware-accelerated quadrature encoder reading (ESP32 PCNT)
+ *   - Real-time odometry calculation and position tracking
+ *   - Forward kinematics for motor control (simple & complex modes)
+ *   - Inverse kinematics for velocity feedback
+ *   - ROS2-compatible odometry message formatting
+ * 
+ * Hardware: ESP32 DevKit + 4 DC motors with encoders + motor drivers
+ * Use case: Autonomous navigation with Nav2 stack integration
+ * 
+ * Author: Achal Patel (The Mimic Robotics)
+ * Date: November 2025
+ */
+
+#ifndef MIMIC_MECANUM_BASE_H
+#define MIMIC_MECANUM_BASE_H
 
 #include <Arduino.h>
+#include <ESP32Encoder.h>
 
 // motor driver types
 enum MotorDriverType {
@@ -60,12 +79,48 @@ enum WheelPosition {
     BACK_RIGHT
 };
 
+// encoder manager class for all 4 motor encoders
+class EncoderManager {
+private:
+    ESP32Encoder encoders[4];
+    long last_counts[4];
+    unsigned long last_time;
+    float velocities[4];  // rad/s for each wheel
+    
+    // robot parameters
+    float wheel_radius;      // meters
+    float wheelbase_width;   // meters (left to right)
+    float wheelbase_length;  // meters (front to back)
+    int encoder_ppr;         // pulses per revolution
+    
+    // odometry state
+    float pos_x;     // meters
+    float pos_y;     // meters
+    float theta;     // radians
+    
+public:
+    EncoderManager(float wheel_r = 0.05, float width = 0.3, float length = 0.3, int ppr = 1600);
+    void init();
+    void update();
+    void reset();
+    
+    // getters
+    long getCount(WheelPosition wheel);
+    float getVelocity(WheelPosition wheel);  // rad/s
+    void getOdometry(float &x, float &y, float &heading);  // get current pose
+    void getVelocities(float &vx, float &vy, float &omega);  // get current twist
+    
+    // formatting for transmission
+    String getOdometryString();  // formatted for ROS2 consumption
+};
+
 // main mecanum base controller class
 class MecanumBase {
 private:
     MotorDriver* motors[4];  // array of motor drivers
     MotorDriverType driver_type;
     KinematicsMethod kinematics_method;  // simple or complex calculations
+    EncoderManager* encoders;  // encoder manager
     
     // movement calculations
     void calculateWheelSpeeds(float x, float y, float rotation, float speeds[4]);
@@ -78,6 +133,9 @@ public:
     
     // initialization
     void init();
+    
+    // encoder access
+    EncoderManager* getEncoders();
     
     // kinematics method switching
     void setKinematicsMethod(KinematicsMethod method);

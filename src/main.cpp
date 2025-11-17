@@ -1,11 +1,11 @@
 #include <Arduino.h>
-#include "mecanum_drive_controller.h"
+#include "mimic_mecanum_base.h"
 
 // ================= CONTROL VARIABLES =================
 KinematicsMethod KINEMATICS_METHOD = SIMPLE;  // SIMPLE or COMPLEX
 
 // global objects
-MecanumBase robot(BTS7960, KINEMATICS_METHOD);
+MecanumBase robot(CYTRON_DUAL, KINEMATICS_METHOD);
 String inputBuffer = "";
 
 // twist message structure
@@ -20,8 +20,10 @@ TwistMsg currentTwist = {0.0, 0.0, 0.0};
 // control parameters
 const float SPEED_MULTIPLIER = 0.8f;
 const unsigned long CONTROL_INTERVAL = 50;  // 20Hz control loop
+const unsigned long ODOM_INTERVAL = 50;     // 20Hz odometry publishing (matches control loop)
 const unsigned long TIMEOUT_MS = 1000;      // stop if no commands for 1 second
 unsigned long last_control_time = 0;
+unsigned long last_odom_time = 0;
 unsigned long last_command_time = 0;
 
 bool parseTwistMessage(String message, TwistMsg &twist) {
@@ -51,22 +53,24 @@ bool parseTwistMessage(String message, TwistMsg &twist) {
 
 void setup() {
     Serial.begin(115200);  // USB communication with Jetson
-    Serial.println("starting mecanum robot with twist control...");
+    Serial.println("starting mecanum robot with twist control and odometry feedback...");
     
     Serial.print("using kinematics method: ");
-    if (KINEMATICS_METHOD == COMPLEX) {
+    if (KINEMATICS_METHOD == SIMPLE) {
         Serial.println("simple");
     } else {
         Serial.println("complex (theta/power)");
     }
     
-    // initialize robot base
+    // initialize robot base (includes encoders)
     robot.init();
     
     Serial.println("robot ready - waiting for twist messages via UART");
     Serial.println("expected format: TWIST,linear_x,linear_y,angular_z");
+    Serial.println("publishing odometry: ODOM,x,y,theta,vx,vy,omega,enc1,enc2,enc3,enc4");
     
     last_command_time = millis();
+    last_odom_time = millis();
 }
 
 void loop() {
@@ -101,6 +105,9 @@ void loop() {
     if (current_time - last_control_time >= CONTROL_INTERVAL) {
         last_control_time = current_time;
         
+        // Update encoder readings and odometry
+        robot.getEncoders()->update();
+        
         // check for timeout
         if (current_time - last_command_time > TIMEOUT_MS) {
             // no commands received - stop robot for safety
@@ -119,6 +126,15 @@ void loop() {
             
             robot.move(strafe, forward, rotation);
         }
+    }
+    
+    // Publish odometry at fixed interval
+    if (current_time - last_odom_time >= ODOM_INTERVAL) {
+        last_odom_time = current_time;
+        
+        // Send odometry data to Jetson
+        String odom_msg = robot.getEncoders()->getOdometryString();
+        Serial.println(odom_msg);
     }
     
     delay(5);  // small delay
