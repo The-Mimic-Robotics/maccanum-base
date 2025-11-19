@@ -88,10 +88,10 @@ private:
     float velocities[4];  // rad/s for each wheel
     
     // robot parameters
-    float wheel_radius;      // meters
-    float wheelbase_width;   // meters (left to right)
-    float wheelbase_length;  // meters (front to back)
-    int encoder_ppr;         // pulses per revolution
+    float wheel_radius;      // meters (0.0762m for 152mm wheels)
+    float wheelbase_width;   // meters (0.4685m center-to-center left/right)
+    float wheelbase_length;  // meters (0.420m center-to-center front/back)
+    int encoder_ppr;         // pulses per revolution (6256 for 17PPR × 4 × 92 gear ratio)
     
     // odometry state
     float pos_x;     // meters
@@ -99,7 +99,7 @@ private:
     float theta;     // radians
     
 public:
-    EncoderManager(float wheel_r = 0.05, float width = 0.3, float length = 0.3, int ppr = 1600);
+    EncoderManager(float wheel_r = 0.0762, float width = 0.4685, float length = 0.420, int ppr = 6256);
     void init();
     void update();
     void reset();

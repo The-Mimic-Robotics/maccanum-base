@@ -333,9 +333,13 @@ MecanumBase::MecanumBase(MotorDriverType type, KinematicsMethod method)
         motors[i] = nullptr;
     }
     
-    // Create encoder manager
-    // Default parameters: wheel_radius=0.05m, width=0.3m, length=0.3m, ppr=1600
-    encoders = new EncoderManager(0.05, 0.3, 0.3, 1600);
+    // Create encoder manager with actual robot dimensions
+    // Robot specifications:
+    //   - 152mm Mecanum Wheels (76.2mm radius)
+    //   - 360mm base width + 2×(26.5mm flange + 27.75mm half-wheel) = 468.5mm wheelbase width
+    //   - 460mm base length - 40mm motor offset = 420mm wheelbase length
+    //   - 17 PPR encoder × 4 (quadrature) × 92 (gear ratio) = 6256 PPR
+    encoders = new EncoderManager(0.0762, 0.4685, 0.420, 6256);
 }
 
 MecanumBase::~MecanumBase() {
@@ -513,6 +517,8 @@ void MecanumBase::setMotorSpeed(WheelPosition wheel, float speed) {
 }
 
 void MecanumBase::switchDriverType(MotorDriverType new_type) {
+    // To basically change the Motor Driver Type at runtime
+    
     // stop all motors first
     stop();
     
