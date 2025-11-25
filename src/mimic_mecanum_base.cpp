@@ -17,6 +17,14 @@
 #include "mimic_mecanum_base.h"
 #include <math.h>
 
+// ================= ROBOT PHYSICAL PARAMETERS =================
+
+const float WHEEL_RADIUS = 0.0762;          // meters (152mm diameter wheels) - (76.2mm radius)
+const float WHEELBASE_WIDTH = 0.4685;       // meters - 360mm base width + 2×(26.5mm flange + 27.75mm half-wheel) = 468.5mm wheelbase width
+const float WHEELBASE_LENGTH = 0.420;       // meters - 460mm base length - 40mm motor offset = 420mm wheelbase length
+const int ENCODER_PPR = 6256;               // pulses per revolution (17 PPR * 92:1 gear ratio * 4 edges = 6256 PPR)
+
+
 // ================= PIN DEFINITIONS FOR ESP32 DEVKIT =================
 // ENCODER PINS (using PCNT hardware - these are fixed)
 // Motor 1 - Front Left
@@ -339,7 +347,7 @@ MecanumBase::MecanumBase(MotorDriverType type, KinematicsMethod method)
     //   - 360mm base width + 2×(26.5mm flange + 27.75mm half-wheel) = 468.5mm wheelbase width
     //   - 460mm base length - 40mm motor offset = 420mm wheelbase length
     //   - 17 PPR encoder × 4 (quadrature) × 92 (gear ratio) = 6256 PPR
-    encoders = new EncoderManager(0.0762, 0.4685, 0.420, 6256);
+    encoders = new EncoderManager(WHEEL_RADIUS, WHEELBASE_WIDTH, WHEELBASE_LENGTH, ENCODER_PPR);
 }
 
 MecanumBase::~MecanumBase() {
@@ -374,7 +382,7 @@ void MecanumBase::init() {
         motors[FRONT_RIGHT] = new CytronDriver(FR_DIR, FR_PWM);
         motors[BACK_LEFT] = new CytronDriver(BL_DIR, BL_PWM);
         motors[BACK_RIGHT] = new CytronDriver(BR_DIR, BR_PWM);
-        Serial.println("using cytron dual motor drivers");
+        Serial.println("using Cytron 20A Dual Motor drivers");
     }
     
     // initialize all motors

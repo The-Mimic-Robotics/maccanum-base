@@ -11,22 +11,28 @@ pio device monitor
 ```
 
 ### Configuration Parameters
-**Location:** `src/mimic_mecanum_base.cpp` - MecanumBase constructor
+**Location:** `src/mimic_mecanum_base.cpp` - Top of file (lines 20-32)
 
 ```cpp
-// Robot physical parameters (adjust if different)
-wheel_radius = 0.0762;       // meters (152mm wheels)
-wheelbase_width = 0.4685;    // meters (468.5mm center-to-center L/R)
-wheelbase_length = 0.420;    // meters (420mm center-to-center F/B)
-encoder_ppr = 6256;          // 17 PPR × 4 × 92 gear ratio
+// Robot physical parameters - adjust these to match your robot
+const float WHEEL_RADIUS = 0.0762;          // meters (152mm diameter wheels)
+const float WHEELBASE_WIDTH = 0.4685;       // meters (468.5mm L/R spacing)
+const float WHEELBASE_LENGTH = 0.420;       // meters (420mm F/B spacing)
+const int ENCODER_PPR = 6256;               // 17 PPR × 4 × 92 gear ratio
+
+// Motor control constants
+const int PWM_MAX = 255;                    // max PWM (8-bit)
+const float MS_TO_SECONDS = 1000.0;         // time conversion
+const float MIN_DT = 0.001;                 // min delta time (seconds)
 ```
 
 **Location:** `src/main.cpp`
 ```cpp
-SPEED_MULTIPLIER = 0.8f;     // Max speed scale (0.0-1.0)
-CONTROL_INTERVAL = 50;       // Control loop: 20Hz
-TIMEOUT_MS = 1000;           // Safety timeout
-KinematicsMethod = SIMPLE;   // or COMPLEX
+const float SPEED_MULTIPLIER = 0.8f;        // Max speed scale (0.0-1.0)
+const unsigned long CONTROL_INTERVAL = 50;  // Motor control loop (ms)
+const unsigned long ODOM_INTERVAL = 50;     // Odometry publish rate (ms)
+const unsigned long TIMEOUT_MS = 1000;      // Command timeout (ms)
+KinematicsMethod KINEMATICS_METHOD = SIMPLE; // SIMPLE or COMPLEX
 ```
 
 ### Communication Protocol
@@ -297,18 +303,21 @@ Fields:
 Edit these in `mecanum_drive_controller.cpp` if any value is changed:
 
 ```cpp
-// Robot physical parameters (in EncoderManager constructor)
-// Based on actual Mimic Robot specifications:
-wheel_radius = 0.0762;       // meters (152mm diameter wheels)
-wheelbase_width = 0.4685;    // meters (468.5mm center-to-center)
-wheelbase_length = 0.420;    // meters (420mm front-to-back)
-encoder_ppr = 6256;          // pulses per revolution (17 PPR × 4 × 92 gear ratio)
+// Robot physical parameters
+const float WHEEL_RADIUS = 0.0762;          // meters (152mm diameter wheels)
+const float WHEELBASE_WIDTH = 0.4685;       // meters (468.5mm center-to-center)
+const float WHEELBASE_LENGTH = 0.420;       // meters (420mm front-to-back)
+const int ENCODER_PPR = 6256;               // pulses per revolution (17×4×92)
+   
+```
 
-// Control parameters (in main.cpp)
-SPEED_MULTIPLIER = 0.8;      // Scale commanded velocities
-CONTROL_INTERVAL = 50;       // Control loop period (ms) - 20Hz
-ODOM_INTERVAL = 50;          // Odometry publish period (ms) - 20Hz
-TIMEOUT_MS = 1000;           // Safety timeout (ms)
+**`src/main.cpp` (lines 7-11):**
+```cpp
+// Control configuration
+const float SPEED_MULTIPLIER = 0.8f;        // Scale commanded velocities
+const unsigned long CONTROL_INTERVAL = 50;  // Control loop period (ms) - 20Hz
+const unsigned long ODOM_INTERVAL = 50;     // Odometry publish period (ms) - 20Hz
+const unsigned long TIMEOUT_MS = 1000;      // Safety timeout (ms)
 ```
 
 ## Testing
@@ -325,21 +334,16 @@ Serial.printf("Encoders: %ld, %ld, %ld, %ld\n",
 
 
 ### Erratic Odometry
-- Verify `encoder_ppr` matches your encoder specs
-- Check wheel radius measurement
-- Ensure wheelbase dimensions are accurate
+- Verify `ENCODER_PPR` constant matches your encoder specs (line 23 in mimic_mecanum_base.cpp)
+- Check `WHEEL_RADIUS` measurement (line 20)
+- Ensure `WHEELBASE_WIDTH` and `WHEELBASE_LENGTH` are accurate (lines 21-22)
 - Look for mechanical slippage
 
 
 
 ## Some more Features
 
-### Adjusting Encoder Resolution
-If your encoders have different PPR (pulses per revolution):
-```cpp
-// In mecanum_drive_controller.cpp, MecanumBase constructor:
-encoders = new EncoderManager(0.05, 0.3, 0.3, YOUR_PPR_HERE);
-```
+
 
 ### Changing Kinematics Method
 ```cpp
@@ -422,16 +426,16 @@ RPWM: GPIO 33    LPWM: GPIO 32    R_EN: GPIO 12    L_EN: GPIO 13
 ```
 mecanum-base/
 ├── src/
-│   ├── main.cpp                      # 🎯 ESP32 main program (UART receiver)
-│   └── mecanum_drive_controller.cpp  # 🔧 Motor driver implementations
+│   ├── main.cpp                      #  ESP32 main program (UART receiver)
+│   └── mimic_mecanum_base.cpp        #  Motor drivers & encoder odometry
 ├── include/
-│   └── mecanum_drive_controller.h    # 📋 Class definitions and interfaces
+│   └── mimic_mecanum_base.h          #  Class definitions and interfaces
 ├── examples/
-│   ├── simple_twist_test.py          # 🧪 No-dependency testing script
-│   ├── test_twist_commands.py        # 🎮 Advanced testing with keyboard
-│   └── motor_test.cpp                # ⚡ Individual motor testing
-├── platformio.ini                    # ⚙️ Build configuration
-└── README.md                         # 📖 This documentation
+│   ├── simple_twist_test.py          #  No-dependency testing script
+│   ├── test_twist_commands.py        #  Advanced testing with keyboard
+│   └── motor_test.cpp                #  Individual motor testing
+├── platformio.ini                    #  Build configuration
+└── README.md                         #  This documentation
 ```
 
 ### Key Software Components
@@ -478,7 +482,18 @@ enum KinematicsMethod {
 - `CytronDriver` - Placeholder for future dual-channel drivers
 - `MecanumBase` - Main robot controller with kinematics
 
-#### 3. **mecanum_drive_controller.cpp** - Implementation Details
+#### 3. **mimic_mecanum_base.cpp** - Implementation Details
+
+**Robot Parameters (lines 20-32)**:
+```cpp
+const float WHEEL_RADIUS = 0.0762;          // meters (152mm wheels)
+const float WHEELBASE_WIDTH = 0.4685;       // meters (468.5mm L/R)
+const float WHEELBASE_LENGTH = 0.420;       // meters (420mm F/B)
+const int ENCODER_PPR = 6256;               // 17×4×92 gear ratio
+const int PWM_MAX = 255;                    // 8-bit PWM max
+const float MS_TO_SECONDS = 1000.0;         // time conversion
+const float MIN_DT = 0.001;                 // min delta time
+```
 
 **Motor Direction Correction**:
 ```cpp

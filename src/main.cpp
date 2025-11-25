@@ -1,6 +1,12 @@
 #include <Arduino.h>
 #include "mimic_mecanum_base.h"
 
+// ================= CONTROL CONFIGURATION =================
+const float SPEED_MULTIPLIER = 0.8f;        // Scale factor for velocity commands (0.0 to 1.0)
+const unsigned long CONTROL_INTERVAL = 50;  // Motor control loop interval in ms (20Hz)
+const unsigned long ODOM_INTERVAL = 50;     // Odometry publishing interval in ms (20Hz)
+const unsigned long TIMEOUT_MS = 1000;      // Command timeout - stop if no commands received (ms)
+
 // ================= CONTROL VARIABLES =================
 KinematicsMethod KINEMATICS_METHOD = SIMPLE;  // SIMPLE or COMPLEX
 
@@ -16,12 +22,6 @@ struct TwistMsg {
 };
 
 TwistMsg currentTwist = {0.0, 0.0, 0.0};
-
-// control parameters
-const float SPEED_MULTIPLIER = 0.8f;
-const unsigned long CONTROL_INTERVAL = 50;  // 20Hz control loop
-const unsigned long ODOM_INTERVAL = 50;     // 20Hz odometry publishing (matches control loop)
-const unsigned long TIMEOUT_MS = 1000;      // stop if no commands for 1 second
 unsigned long last_control_time = 0;
 unsigned long last_odom_time = 0;
 unsigned long last_command_time = 0;
