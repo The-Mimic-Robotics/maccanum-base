@@ -1,3 +1,17 @@
+/*
+ * COORDINATE SYSTEM: ROS2 REP-103 Compliant
+ * 
+ * Linear velocities (cmd_vel and odometry):
+ *   +X = Forward
+ *   +Y = Left (strafe)
+ *   +Z = Up (not used for ground robots)
+ * 
+ * Angular velocity:
+ *   +Z (yaw) = Counter-clockwise rotation
+ * 
+ * Robot receives Twist messages and publishes Odometry in this frame.
+ */
+
 #include <Arduino.h>
 #include "mimic_mecanum_base.h"
 
@@ -119,10 +133,10 @@ void loop() {
                 last_timeout_msg = current_time;
             }
         } else {
-            // apply twist commands to robot
-            float strafe = currentTwist.linear_y * SPEED_MULTIPLIER;    // ROS Y = robot strafe
-            float forward = currentTwist.linear_x * SPEED_MULTIPLIER;   // ROS X = robot forward
-            float rotation = currentTwist.angular_z * SPEED_MULTIPLIER; // ROS Z = robot rotation
+            // Apply twist commands to robot (REP-103: X=forward, Y=left, Z=CCW)
+            float strafe = -currentTwist.linear_y * SPEED_MULTIPLIER;    // ROS Y=left, robot needs right positive
+            float forward = currentTwist.linear_x * SPEED_MULTIPLIER;    // ROS X=forward (correct)
+            float rotation = -currentTwist.angular_z * SPEED_MULTIPLIER; // ROS Z=CCW, robot needs CW positive
             
             robot.move(strafe, forward, rotation);
         }

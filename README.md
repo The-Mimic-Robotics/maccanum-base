@@ -2,6 +2,23 @@
 
 ESP32-based motor controller for 4-wheel mecanum drive robot with quadrature encoder feedback for Nav2 odometry.
 
+## Coordinate System (ROS2 REP-103)
+
+This system follows the **ROS2 REP-103 standard** for all command and odometry data:
+
+**Linear Velocities:**
+- **+X** = Forward (robot moves forward)
+- **+Y** = Left (robot strafes left)
+- **+Z** = Up (not used for ground robots)
+
+**Angular Velocity:**
+- **+Z (yaw)** = Counter-clockwise rotation (right-hand rule)
+
+**Frame Conventions:**
+- `odom` frame: Fixed world frame where odometry is calculated
+- `base_link` frame: Robot body frame (moves with robot)
+- All Twist commands and Odometry messages use this coordinate system
+
 ## Quick Start
 
 ### Build & Upload
@@ -46,7 +63,12 @@ Example: TWIST,0.5,-0.2,0.1
 **ESP32 → Jetson (Odometry @ 20Hz):**
 ```
 Format: ODOM,x,y,theta,vx,vy,omega,enc1,enc2,enc3,enc4
-Example: ODOM,1.234,0.567,0.785,0.1,0.0,0.05,12450,12398,12467,12410
+Example: ODOM,1.234,0.567,0.785,0.5,0.0,0.1,12450,12398,12467,12410
+
+REP-103 Convention:
+  vx = forward velocity (m/s)
+  vy = left strafe velocity (m/s)
+  omega = CCW rotation (rad/s)
 ```
 
 ## Hardware Specifications
@@ -67,20 +89,20 @@ Example: ODOM,1.234,0.567,0.785,0.1,0.0,0.05,12450,12398,12467,12410
 ### Pin Assignments
 
 #### Encoders (PCNT Hardware)
-| Motor | A | B | Notes |
-|-------|---|---|-------|
-| FL (1) | GPIO 18 | GPIO 19 | Right side cluster |
-| FR (2) | GPIO 21 | GPIO 22 | Right side cluster |
-| BL (3) | GPIO 23 | GPIO 25 | Right side cluster |
-| BR (4) | GPIO 26 | GPIO 27 | Right side cluster |
+| Motor | A | B | Side |
+|-------|---|---|------|
+| FL (1) | GPIO 32 | GPIO 33 | Left side |
+| FR (2) | GPIO 23 | GPIO 22 | Right side |
+| BL (3) | GPIO 27 | GPIO 13 | Left side |
+| BR (4) | GPIO 18 | GPIO 4 | Right side |
 
 #### Cytron Motor Drivers
 | Motor | DIR | PWM | Side |
 |-------|-----|-----|------|
-| FL | GPIO 32 | GPIO 33 | Left motors |
-| BL | GPIO 12 | GPIO 13 | Left motors |
-| FR | GPIO 14 | GPIO 15 | Right motors |
-| BR | GPIO 16 | GPIO 17 | Right motors |
+| FL | GPIO 25 | GPIO 26 | Left motors |
+| FR | GPIO 21 | GPIO 19 | Right motors |
+| BL | GPIO 14 | GPIO 12 | Left motors |
+| BR | GPIO 17 | GPIO 16 | Right motors |
 
 **Avoid these GPIOs:** 0,2,4,5,6-11,12,15 (boot/flash issues)
 
@@ -102,11 +124,13 @@ python3 examples/simple_twist_test.py COM3
 # 1 = Auto test | 2 = Keyboard control
 ```
 
-### Movement Patterns
+### Movement Patterns (REP-103)
 ```
-Forward:  TWIST,0.5,0.0,0.0
-Strafe R: TWIST,0.0,-0.5,0.0
-Rotate L: TWIST,0.0,0.0,0.5
+Forward:       TWIST,0.5,0.0,0.0   (X+ = forward)
+Strafe Left:   TWIST,0.0,0.5,0.0   (Y+ = left)
+Strafe Right:  TWIST,0.0,-0.5,0.0  (Y- = right)
+Rotate CCW:    TWIST,0.0,0.0,0.5   (Z+ = counter-clockwise)
+Rotate CW:     TWIST,0.0,0.0,-0.5  (Z- = clockwise)
 ```
 
 ## ROS2 Integration
@@ -214,64 +238,40 @@ Resolution: ~0.077mm per tick
 ### ESP32 DevKit Pin Diagram
 
 ```
-                                  ESP32 DEVKIT (38 pins)
-                           ┌────────────────────────────────┐
-                           │                                │
-                       3V3 │ 1                          38 │ GND
-                       GND │ 2                          37 │ GPIO 23  ──→ ENC3_A (BL Motor)
-                 GPIO 15 ← │ 3  FR_PWM                  36 │ GPIO 22  ──→ ENC2_B (FR Motor)
-                  GPIO 2   │ 4                          35 │ TXD0
-                  GPIO 0   │ 5                          34 │ RXD0
-                  GPIO 4   │ 6                          33 │ GPIO 21  ──→ ENC2_A (FR Motor)
-              FL_PWM → GPIO 16 │ 7                          32 │ GPIO 19  ──→ ENC1_B (FL Motor)
-              BR_PWM → GPIO 17 │ 8                          31 │ GPIO 18  ──→ ENC1_A (FL Motor)
-                  GPIO 5   │ 9                          30 │ GPIO 5
-                  GPIO 18 ─│10  (ENC1_A)                29 │ GPIO 17  ──→ BR_PWM
-                  GPIO 19 ─│11  (ENC1_B)                28 │ GPIO 16  ──→ FL_PWM
-                  GPIO 21 ─│12  (ENC2_A)                27 │ GPIO 4
-                       GND │13                          26 │ GPIO 0
-                  GPIO 22 ─│14  (ENC2_B)                25 │ GPIO 2
-                  GPIO 23 ─│15  (ENC3_A)                24 │ GPIO 15  ──→ FR_PWM
-                       GND │16                          23 │ GND
-                       3V3 │17                          22 │ GPIO 13  ──→ BL_PWM
-                       EN  │18                          21 │ GPIO 12  ──→ BL_DIR
-          SENSOR_VP/GPIO 36│19                          20 │ GPIO 14  ──→ FR_DIR
-          SENSOR_VN/GPIO 39│20                          19 │ GPIO 27  ──→ ENC4_B (BR Motor)
-                       GND │21                          18 │ GPIO 26  ──→ ENC4_A (BR Motor)
-              ENC3_B → GPIO 25 │22                          17 │ GPIO 25  ──→ ENC3_B (BL Motor)
-              FL_DIR → GPIO 32 │23                          16 │ GPIO 33  ──→ FL_DIR
-              BR_DIR → GPIO 33 │24                          15 │ GPIO 32  ──→ FL_PWM
-                       GND │25                          14 │ GND
-                           └────────────────────────────────┘
+                                    NORTH
+                    ┌───────────────────────────────┐
+                    │         Freenove ESP32        │
+                    │           WROOM               │
+                    │                               │
+         LEFT SIDE  │                               │  RIGHT SIDE
+                    │                               │
+    ┌───────────────┤                               ├───────────────┐
+    │               │                               │               │
+    │  FL Motor     │                               │     FR Motor  │
+    │  (Motor 1)    │                               │    (Motor 2)  │
+    │               │                               │               │
+    │  Enc A: 32 ───┤                               ├─── 23 :Enc A  │
+    │  Enc B: 33 ───┤                               ├─── 22 :Enc B  │
+    │  DIR:   25 ───┤                               ├─── 21 :DIR    │
+    │  PWM:   26 ───┤                               ├─── 19 :PWM    │
+    │               │                               │               │
+    │               │                               │               │
+    │  BL Motor     │                               │     BR Motor  │
+    │  (Motor 3)    │                               │    (Motor 4)  │
+    │               │                               │               │
+    │  Enc A: 27 ───┤                               ├─── 18 :Enc A  │
+    │  Enc B: 14 ───┤                               ├───  4 :Enc B  │
+    │  DIR:   13 ───┤                               ├─── 17 :DIR    │
+    │  PWM:   12 ───┤                               ├─── 16 :PWM    │
+    │               │                               │               │
+    └───────────────┤                               ├───────────────┘
+                    │                               │
+                    │           ▓▓▓▓▓▓              │
+                    │         USB-C Port            │
+                    │          (SOUTH)              │
+                    └───────────────────────────────┘
+
 ```
-
-### Pin Assignments Summary
-
-#### Encoder Pins (Fixed - using PCNT hardware)
-| Motor | Encoder A | Encoder B | Location |
-|-------|-----------|-----------|----------|
-| **Motor 1 (Front Left)**  | GPIO 18 | GPIO 19 | Right side pins |
-| **Motor 2 (Front Right)** | GPIO 21 | GPIO 22 | Right side pins |
-| **Motor 3 (Back Left)**   | GPIO 23 | GPIO 25 | Right side pins |
-| **Motor 4 (Back Right)**  | GPIO 26 | GPIO 27 | Right side pins |
-
-#### Cytron Motor Driver Pins (Left Side Motors)
-| Motor | DIR Pin | PWM Pin | Location |
-|-------|---------|---------|----------|
-| **Front Left (FL)**  | GPIO 32 | GPIO 33 | Bottom left |
-| **Back Left (BL)**   | GPIO 12 | GPIO 13 | Right side |
-
-#### Cytron Motor Driver Pins (Right Side Motors)
-| Motor | DIR Pin | PWM Pin | Location |
-|-------|---------|---------|----------|
-| **Front Right (FR)** | GPIO 14 | GPIO 15 | Right side |
-| **Back Right (BR)**  | GPIO 16 | GPIO 17 | Right side |
-
-### Wiring Layout Benefits
-- **Encoder pins clustered** on right side (18,19,21,22,23,25,26,27) for clean wiring
-- **Left motor controls** (FL, BL) use pins 32,33,12,13
-- **Right motor controls** (FR, BR) use pins 14,15,16,17
-- Logical grouping reduces wire tangles and makes debugging easier
 
 ## Communication Protocol
 
@@ -287,14 +287,15 @@ Rate: As needed (timeout safety at 1 second)
 **Odometry Data** - Position and velocity feedback
 ```
 Format: ODOM,x,y,theta,vx,vy,omega,enc1,enc2,enc3,enc4
-Example: ODOM,1.2345,0.5678,0.7854,0.1,0.0,0.05,12450,12398,12467,12410
+Example: ODOM,1.2345,0.5678,0.7854,0.5,0.0,0.1,12450,12398,12467,12410
 Rate: 20Hz (50ms)
 
-Fields:
+Fields (ROS2 REP-103):
   x, y       - Position in meters (global frame)
-  theta      - Heading in radians
-  vx, vy     - Linear velocity in m/s (robot frame: vx=strafe, vy=forward)
-  omega      - Angular velocity in rad/s
+  theta      - Heading in radians (CCW from X-axis)
+  vx         - Forward velocity in m/s (X-axis)
+  vy         - Left strafe velocity in m/s (Y-axis)
+  omega      - Angular velocity in rad/s (CCW positive)
   enc1-enc4  - Raw encoder counts (FL, FR, BL, BR)
 ```
 
@@ -399,26 +400,6 @@ The only things you must avoid are:
 - boot-strap pins that get confused during reset if they’re pulled low or high incorrectly
 
 - weird behavior on gpio12 that changes flash voltage at boot
-
-### ESP32 Pin Assignments (Optimized for Stability)
-Our pin configuration **avoids problematic boot-strapping pins** that can cause motor twitching:
-
-```cpp
-// Front Left Motor (BTS7960)
-RPWM: GPIO 16    LPWM: GPIO 17    R_EN: GPIO 21    L_EN: GPIO 19
-
-// Front Right Motor (BTS7960) 
-RPWM: GPIO 25    LPWM: GPIO 26    R_EN: GPIO 34    L_EN: GPIO 35
-
-// Back Left Motor (BTS7960)
-RPWM: GPIO 22    LPWM: GPIO 23    R_EN: GPIO 5     L_EN: GPIO 18
-
-// Back Right Motor (BTS7960)
-RPWM: GPIO 33    LPWM: GPIO 32    R_EN: GPIO 12    L_EN: GPIO 13
-```
-
-⚠️ **Critical**: Pins **0, 2, 9, 10, 11, 13, 15** can cause boot issues and motor instability. Our configuration avoids these.
-
 
 ##  Project Architecture
 
@@ -539,27 +520,6 @@ python3 simple_twist_test.py COM3
 ```
 
 
-##  Movement Mechanics
-
-### Mecanum Wheel Movement Patterns
-```
-Forward:     linear_x=0.5,  linear_y=0.0,  angular_z=0.0
-Backward:    linear_x=-0.5, linear_y=0.0,  angular_z=0.0
-Strafe Left: linear_x=0.0,  linear_y=0.5,  angular_z=0.0
-Strafe Right:linear_x=0.0,  linear_y=-0.5, angular_z=0.0
-Rotate Left: linear_x=0.0,  linear_y=0.0,  angular_z=0.5
-Rotate Right:linear_x=0.0,  linear_y=0.0,  angular_z=-0.5
-
-Diagonal:    linear_x=0.5,  linear_y=0.5,  angular_z=0.0
-Circle:      linear_x=0.3,  linear_y=0.0,  angular_z=0.3
-```
-
-### Safety Features
-- **Timeout Protection**: Robot stops if no commands received for 1 second
-- **Speed Limiting**: `SPEED_MULTIPLIER` prevents dangerous speeds
-- **Watchdog Timer**: Control loop runs at precise 20Hz
-- **Emergency Stop**: Send all-zero command to immediate stop
-
 ### Kinematics Selection
 ```cpp
 // In main.cpp - choose your calculation method:
@@ -574,106 +534,6 @@ const float SPEED_MULTIPLIER = 0.8f;          // Reduce for safety testing
 const unsigned long CONTROL_INTERVAL = 50;    // 20Hz (50ms) is optimal
 const unsigned long TIMEOUT_MS = 1000;        // Safety timeout duration
 ```
-
-## ROS2 Integration
-
-### On Jetson Side
-
-Create a node to bridge UART and ROS2 topics:
-
-```python
-#!/usr/bin/env python3
-import serial
-import rclpy
-from rclpy.node import Node
-from geometry_msgs.msg import Twist
-from nav_msgs.msg import Odometry
-from geometry_msgs.msg import TransformStamped
-from tf2_ros import TransformBroadcaster
-import math
-
-class MecanumBridge(Node):
-    def __init__(self):
-        super().__init__('mecanum_bridge')
-        
-        # Serial connection to ESP32
-        self.ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=0.1)
-        
-        # ROS2 publishers
-        self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
-        self.tf_broadcaster = TransformBroadcaster(self)
-        
-        # ROS2 subscribers
-        self.twist_sub = self.create_subscription(
-            Twist, 'cmd_vel', self.twist_callback, 10)
-        
-        # Timer for reading odometry
-        self.create_timer(0.05, self.read_odometry)  # 20Hz
-        
-    def twist_callback(self, msg):
-        # Send twist command to ESP32
-        cmd = f"TWIST,{msg.linear.x},{msg.linear.y},{msg.angular.z}\n"
-        self.ser.write(cmd.encode())
-        
-    def read_odometry(self):
-        if self.ser.in_waiting:
-            line = self.ser.readline().decode().strip()
-            if line.startswith('ODOM,'):
-                self.parse_and_publish_odom(line)
-                
-    def parse_and_publish_odom(self, line):
-        # Parse: ODOM,x,y,theta,vx,vy,omega,enc1,enc2,enc3,enc4
-        parts = line.split(',')
-        if len(parts) != 11:
-            return
-            
-        x = float(parts[1])
-        y = float(parts[2])
-        theta = float(parts[3])
-        vx = float(parts[4])
-        vy = float(parts[5])
-        omega = float(parts[6])
-        
-        # Create and publish odometry message
-        odom = Odometry()
-        odom.header.stamp = self.get_clock().now().to_msg()
-        odom.header.frame_id = 'odom'
-        odom.child_frame_id = 'base_link'
-        
-        # Position
-        odom.pose.pose.position.x = x
-        odom.pose.pose.position.y = y
-        odom.pose.pose.position.z = 0.0
-        
-        # Orientation (quaternion from theta)
-        odom.pose.pose.orientation.z = math.sin(theta / 2.0)
-        odom.pose.pose.orientation.w = math.cos(theta / 2.0)
-        
-        # Velocity (in robot frame for mecanum)
-        odom.twist.twist.linear.x = vy  # forward
-        odom.twist.twist.linear.y = vx  # strafe
-        odom.twist.twist.angular.z = omega
-        
-        self.odom_pub.publish(odom)
-        
-        # Publish TF transform
-        t = TransformStamped()
-        t.header = odom.header
-        t.child_frame_id = odom.child_frame_id
-        t.transform.translation.x = x
-        t.transform.translation.y = y
-        t.transform.rotation = odom.pose.pose.orientation
-        self.tf_broadcaster.sendTransform(t)
-
-def main():
-    rclpy.init()
-    node = MecanumBridge()
-    rclpy.spin(node)
-
-if __name__ == '__main__':
-    main()
-```
-
 
 by: Achal Patel
 

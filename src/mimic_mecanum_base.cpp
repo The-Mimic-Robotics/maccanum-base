@@ -7,9 +7,23 @@
  *   - Odometry calculation (position & velocity estimation)
  *   - Mecanum wheel kinematics (forward & inverse)
  * 
- * Pin assignments optimized for clean wiring:
- *   - Encoders: GPIO 18,19,21,22,23,25,26,27 (right side cluster)
- *   - Motors: GPIO 12-17,32-33 (logical left/right grouping)
+ * COORDINATE SYSTEM: ROS2 REP-103 Standard
+ *   Linear: +X=Forward, +Y=Left, +Z=Up
+ *   Angular: +Z=CCW rotation (right-hand rule)
+ *   All odometry and velocity data follows this convention
+ * 
+ * TARGET BOARD: Freenove ESP32-WROOM (USB-C port pointing SOUTH)
+ * 
+ * Pin assignments - LEFT/RIGHT physical separation:
+ *   LEFT SIDE (FL + BL motors):
+ *     - FL encoder: GPIO 32, 33 | FL driver: GPIO 25, 26
+ *     - BL encoder: GPIO 27, 14 | BL driver: GPIO 13, 12
+ * 
+ *   RIGHT SIDE (FR + BR motors):
+ *     - FR encoder: GPIO 23, 22 | FR driver: GPIO 21, 19
+ *     - BR encoder: GPIO 18, 4  | BR driver: GPIO 17, 16
+ * 
+ * All encoder pins are PCNT-compatible and avoid boot/strapping conflicts
  * 
  * Author: Achal Patel (The Mimic Robotics)
  */
@@ -25,63 +39,62 @@ const float WHEELBASE_LENGTH = 0.420;       // meters - 460mm base length - 40mm
 const int ENCODER_PPR = 6256;               // pulses per revolution (17 PPR * 92:1 gear ratio * 4 edges = 6256 PPR)
 
 
-// ================= PIN DEFINITIONS FOR ESP32 DEVKIT =================
-// ENCODER PINS (using PCNT hardware - these are fixed)
-// Motor 1 - Front Left
-#define ENC1_A 18
-#define ENC1_B 19
+// ================= PIN DEFINITIONS FOR FREENOVE ESP32-WROOM =================
+// USB-C port pointing SOUTH
+// LEFT side pins = LEFT motors (FL + BL)
+// RIGHT side pins = RIGHT motors (FR + BR)
+// All encoders use PCNT-compatible GPIOs, avoiding boot/strapping pins
 
-// Motor 2 - Front Right  
-#define ENC2_A 21
-#define ENC2_B 22
+// ================= LEFT SIDE MOTORS (Physical LEFT of board) =================
 
-// Motor 3 - Back Left
-#define ENC3_A 23
-#define ENC3_B 25
+// Motor 1 - Front Left (FL) - Uses LEFT side GPIOs
+#define ENC1_A 32   // LEFT side - PCNT compatible
+#define ENC1_B 33   // LEFT side - PCNT compatible
+#define FL_DIR 25   // LEFT side - Cytron DIR
+#define FL_PWM 26   // LEFT side - Cytron PWM
 
-// Motor 4 - Back Right
-#define ENC4_A 26
-#define ENC4_B 27
+// Motor 3 - Back Left (BL) - Uses LEFT side GPIOs
+#define ENC3_A 27   // LEFT side - PCNT compatible
+#define ENC3_B 13   // LEFT side - PCNT compatible
+#define BL_DIR 14   // LEFT side - Cytron DIR
+#define BL_PWM 12   // LEFT side - Cytron PWM
 
-// ================= CYTRON DRIVER PINS =================
-// New pins chosen to avoid encoder pins and provide good wiring layout
-// Left side motors (FL, BL) - grouped together
-#define FL_DIR 32   // Front Left Direction
-#define FL_PWM 33   // Front Left PWM
+// ================= RIGHT SIDE MOTORS (Physical RIGHT of board) =================
 
-#define BL_DIR 12   // Back Left Direction  
-#define BL_PWM 13   // Back Left PWM
+// Motor 2 - Front Right (FR) - Uses RIGHT side GPIOs
+#define ENC2_A 23   // RIGHT side - PCNT compatible
+#define ENC2_B 22   // RIGHT side - PCNT compatible
+#define FR_DIR 21   // RIGHT side - Cytron DIR
+#define FR_PWM 19   // RIGHT side - Cytron PWM
 
-// Right side motors (FR, BR) - grouped together
-#define FR_DIR 14   // Front Right Direction
-#define FR_PWM 15   // Front Right PWM
+// Motor 4 - Back Right (BR) - Uses RIGHT side GPIOs
+#define ENC4_A 18   // RIGHT side - PCNT compatible
+#define ENC4_B 4    // RIGHT side - PCNT compatible
+#define BR_DIR 17   // RIGHT side - Cytron DIR
+#define BR_PWM 16   // RIGHT side - Cytron PWM
 
-#define BR_DIR 16   // Back Right Direction
-#define BR_PWM 17   // Back Right PWM
+// ================= BTS7960 DRIVER PINS (Legacy - for BTS7960 compatibility) =================
+// LEFT side motors (FL, BL)
+#define FL_RPWM 26
+#define FL_LPWM 25
+#define FL_R_EN 33
+#define FL_L_EN 32
 
-// ================= BTS7960 DRIVER PINS (Legacy - keep for compatibility) =================
-#define FL_RPWM 16
-#define FL_LPWM 17
-#define FL_R_EN 21
-#define FL_L_EN 19
+#define BL_RPWM 12
+#define BL_LPWM 13
+#define BL_R_EN 14
+#define BL_L_EN 27
 
-// front right motor (motor 2) - KEEP THESE (they're good)
-#define FR_RPWM 25
-#define FR_LPWM 26
-#define FR_R_EN 34
-#define FR_L_EN 35
+// RIGHT side motors (FR, BR)
+#define FR_RPWM 19
+#define FR_LPWM 21
+#define FR_R_EN 22
+#define FR_L_EN 23
 
-// back left motor (motor 3) - FIXED PINS
-#define BL_RPWM 22  // Was 4 - now using safe GPIO
-#define BL_LPWM 23 // Was 0 - now using safe GPIO
-#define BL_R_EN 5   // Was 2 - now using safe GPIO
-#define BL_L_EN 18  // Was 15 - now using safe GPIO
-
-// back right motor (motor 4) - FIXED PINS
-#define BR_RPWM 33  // Was 10 - now using safe GPIO
-#define BR_LPWM 32  // Was 11 - now using safe GPIO
-#define BR_R_EN 12  // Was 13 - now using safe GPIO
-#define BR_L_EN 13  // Was 9 - now using safe GPIO (GPIO 13 is actually okay for output)
+#define BR_RPWM 16
+#define BR_LPWM 17
+#define BR_R_EN 4
+#define BR_L_EN 18
 
 
 
@@ -154,11 +167,11 @@ void CytronDriver::setSpeed(float speed) {
 
     if (speed > 0.01f) {
         // Forward direction
-        digitalWrite(dir_pin, HIGH);
+        digitalWrite(dir_pin, LOW);
         analogWrite(pwm_pin, speed * 255);
     } else if (speed < -0.01f) {
         // Reverse direction
-        digitalWrite(dir_pin, LOW);
+        digitalWrite(dir_pin, HIGH);
         analogWrite(pwm_pin, abs(speed) * 255);
     } else {
         // Stop (very small speeds treated as stop)
@@ -210,11 +223,13 @@ void EncoderManager::init() {
     
     last_time = millis();
     
-    Serial.println("Encoders initialized:");
-    Serial.printf("  Motor 1 (FL): GPIO %d (A), GPIO %d (B)\n", ENC1_A, ENC1_B);
-    Serial.printf("  Motor 2 (FR): GPIO %d (A), GPIO %d (B)\n", ENC2_A, ENC2_B);
-    Serial.printf("  Motor 3 (BL): GPIO %d (A), GPIO %d (B)\n", ENC3_A, ENC3_B);
-    Serial.printf("  Motor 4 (BR): GPIO %d (A), GPIO %d (B)\n", ENC4_A, ENC4_B);
+    Serial.println("Encoders initialized on Freenove ESP32-WROOM:");
+    Serial.println("  LEFT SIDE:");
+    Serial.printf("    Motor 1 (FL): GPIO %d (A), GPIO %d (B)\n", ENC1_A, ENC1_B);
+    Serial.printf("    Motor 3 (BL): GPIO %d (A), GPIO %d (B)\n", ENC3_A, ENC3_B);
+    Serial.println("  RIGHT SIDE:");
+    Serial.printf("    Motor 2 (FR): GPIO %d (A), GPIO %d (B)\n", ENC2_A, ENC2_B);
+    Serial.printf("    Motor 4 (BR): GPIO %d (A), GPIO %d (B)\n", ENC4_A, ENC4_B);
 }
 
 void EncoderManager::update() {
@@ -226,6 +241,13 @@ void EncoderManager::update() {
     // Read encoder counts and calculate velocities
     for (int i = 0; i < 4; i++) {
         long current_count = encoders[i].getCount();
+        
+        // Invert left side encoders (they spin opposite direction for forward motion)
+        // Left motors (FL=0, BL=2) spin CCW for forward, right motors (FR=1, BR=3) spin CW
+        if (i == FRONT_LEFT || i == BACK_LEFT) {
+            current_count = -current_count;
+        }
+        
         long delta_count = current_count - last_counts[i];
         
         // Calculate angular velocity (rad/s)
@@ -316,18 +338,30 @@ void EncoderManager::getVelocities(float &vx, float &vy, float &omega) {
 
 String EncoderManager::getOdometryString() {
     // Format: ODOM,x,y,theta,vx,vy,omega,enc1,enc2,enc3,enc4
-    // This format allows the Jetson to reconstruct full odometry
+    // Follows ROS2 REP-103: X=forward(+), Y=left(+), Z=up, Yaw=CCW(+)
     
     float vx, vy, omega;
     getVelocities(vx, vy, omega);
+    
+    // Convert robot frame to ROS2 REP-103 convention
+    // Robot: vx=strafe(right+), vy=forward(+), omega=CW(+)
+    // ROS2:  vx=forward(+),     vy=left(+),    omega=CCW(+)
+    float vx_ros = vy;       // forward velocity (same)
+    float vy_ros = -vx;      // left velocity (negate strafe)
+    float omega_ros = -omega; // CCW rotation (negate CW)
+    
+    // Get encoder counts with left-side inversion applied
+    long enc1 = -encoders[0].getCount();  // FL - inverted
+    long enc2 = encoders[1].getCount();   // FR - normal
+    long enc3 = -encoders[2].getCount();  // BL - inverted
+    long enc4 = encoders[3].getCount();   // BR - normal
     
     char buffer[256];
     snprintf(buffer, sizeof(buffer), 
              "ODOM,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%ld,%ld,%ld,%ld",
              pos_x, pos_y, theta,
-             vx, vy, omega,
-             encoders[0].getCount(), encoders[1].getCount(),
-             encoders[2].getCount(), encoders[3].getCount());
+             vx_ros, vy_ros, omega_ros,
+             enc1, enc2, enc3, enc4);
     
     return String(buffer);
 }
@@ -365,24 +399,27 @@ MecanumBase::~MecanumBase() {
 }
 
 void MecanumBase::init() {
-    Serial.println("initializing mecanum base...");
+    Serial.println("Initializing mecanum base on Freenove ESP32-WROOM...");
     
     // create motor drivers based on type
     if (driver_type == BTS7960) {
-        // BTS7960 drivers need 4 pins each: RPWM, LPWM, R_EN, L_EN
-        // Using safe GPIO pins to avoid boot issues
-        motors[FRONT_LEFT] = new BTS7960Driver(16, 17, 21, 19);   // FL
-        motors[FRONT_RIGHT] = new BTS7960Driver(25, 26, 34, 35);  // FR
-        motors[BACK_LEFT] = new BTS7960Driver(22, 23, 5, 18);     // BL
-        motors[BACK_RIGHT] = new BTS7960Driver(33, 32, 12, 13);   // BR
-        Serial.println("using bts7960 motor drivers");
+        // BTS7960 drivers: RPWM, LPWM, R_EN, L_EN
+        // LEFT side motors use LEFT side pins
+        motors[FRONT_LEFT] = new BTS7960Driver(FL_RPWM, FL_LPWM, FL_R_EN, FL_L_EN);   // FL - LEFT pins
+        motors[BACK_LEFT] = new BTS7960Driver(BL_RPWM, BL_LPWM, BL_R_EN, BL_L_EN);    // BL - LEFT pins
+        // RIGHT side motors use RIGHT side pins
+        motors[FRONT_RIGHT] = new BTS7960Driver(FR_RPWM, FR_LPWM, FR_R_EN, FR_L_EN);  // FR - RIGHT pins
+        motors[BACK_RIGHT] = new BTS7960Driver(BR_RPWM, BR_LPWM, BR_R_EN, BR_L_EN);   // BR - RIGHT pins
+        Serial.println("Using BTS7960 motor drivers with LEFT/RIGHT pin separation");
     } else if (driver_type == CYTRON_DUAL) {
-        // Cytron dual motor drivers - each uses DIR and PWM pins
-        motors[FRONT_LEFT] = new CytronDriver(FL_DIR, FL_PWM);
-        motors[FRONT_RIGHT] = new CytronDriver(FR_DIR, FR_PWM);
-        motors[BACK_LEFT] = new CytronDriver(BL_DIR, BL_PWM);
-        motors[BACK_RIGHT] = new CytronDriver(BR_DIR, BR_PWM);
-        Serial.println("using Cytron 20A Dual Motor drivers");
+        // Cytron dual motor drivers - DIR and PWM pins
+        // LEFT side motors use LEFT side pins
+        motors[FRONT_LEFT] = new CytronDriver(FL_DIR, FL_PWM);   // FL - LEFT pins
+        motors[BACK_LEFT] = new CytronDriver(BL_DIR, BL_PWM);    // BL - LEFT pins
+        // RIGHT side motors use RIGHT side pins
+        motors[FRONT_RIGHT] = new CytronDriver(FR_DIR, FR_PWM);  // FR - RIGHT pins
+        motors[BACK_RIGHT] = new CytronDriver(BR_DIR, BR_PWM);   // BR - RIGHT pins
+        Serial.println("Using Cytron 20A Dual Motor drivers with LEFT/RIGHT pin separation");
     }
     
     // initialize all motors
@@ -395,7 +432,8 @@ void MecanumBase::init() {
     // Initialize encoders
     encoders->init();
     
-    Serial.println("mecanum base initialized");
+    Serial.println("Mecanum base initialized on Freenove ESP32-WROOM");
+    Serial.println("Pin mapping: LEFT motors use LEFT side | RIGHT motors use RIGHT side");
 }
 
 EncoderManager* MecanumBase::getEncoders() {

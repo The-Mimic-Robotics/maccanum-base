@@ -154,15 +154,14 @@ class MecanumBridgeNode(Node):
             odom.pose.pose.orientation.z = math.sin(theta / 2.0)
             odom.pose.pose.orientation.w = math.cos(theta / 2.0)
             
-            # Set velocity (in robot frame)
-            # ROS convention: x=forward, y=left, z=up
-            # ESP32 sends: vx=strafe(right), vy=forward
-            odom.twist.twist.linear.x = vy      # forward velocity
-            odom.twist.twist.linear.y = -vx     # left velocity (negate strafe)
+            # Set velocity (in robot frame, already in ROS2 REP-103 format from ESP32)
+            # ESP32 now sends: vx=forward, vy=left, omega=CCW (REP-103 compliant)
+            odom.twist.twist.linear.x = vx      # forward velocity
+            odom.twist.twist.linear.y = vy      # left velocity
             odom.twist.twist.linear.z = 0.0
             odom.twist.twist.angular.x = 0.0
             odom.twist.twist.angular.y = 0.0
-            odom.twist.twist.angular.z = omega
+            odom.twist.twist.angular.z = omega   # CCW rotation
             
             # Set covariance (adjust based on your robot's accuracy)
             # Order: x, y, z, rot_x, rot_y, rot_z
