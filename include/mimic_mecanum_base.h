@@ -98,6 +98,11 @@ private:
     float pos_y;     // meters
     float theta;     // radians
     
+    // Robot velocities (ROS2 REP-103 frame)
+    float vel_forward;  // m/s (X-axis, forward positive)
+    float vel_left;     // m/s (Y-axis, left positive)
+    float vel_omega;    // rad/s (Z-axis, CCW positive)
+    
 public:
     EncoderManager(float wheel_r = 0.0762, float width = 0.4685, float length = 0.420, int ppr = 6256);
     void init();
@@ -122,10 +127,10 @@ private:
     KinematicsMethod kinematics_method;  // simple or complex calculations
     EncoderManager* encoders;  // encoder manager
     
-    // movement calculations
-    void calculateWheelSpeeds(float x, float y, float rotation, float speeds[4]);
-    void calculateWheelSpeedsSimple(float x, float y, float rotation, float speeds[4]);
-    void calculateWheelSpeedsComplex(float x, float y, float rotation, float speeds[4]);
+    // movement calculations (ROS2 convention: forward, left, rotation_ccw)
+    void calculateWheelSpeeds(float forward, float left, float rotation_ccw, float speeds[4]);
+    void calculateWheelSpeedsSimple(float forward, float left, float rotation_ccw, float speeds[4]);
+    void calculateWheelSpeedsComplex(float forward, float left, float rotation_ccw, float speeds[4]);
     
 public:
     MecanumBase(MotorDriverType type = BTS7960, KinematicsMethod method = SIMPLE);
@@ -141,8 +146,8 @@ public:
     void setKinematicsMethod(KinematicsMethod method);
     KinematicsMethod getKinematicsMethod();
     
-    // movement control
-    void move(float x, float y, float rotation);  // x: strafe, y: forward, rotation: turn
+    // movement control (ROS2 REP-103: forward=X+, left=Y+, ccw=Z+)
+    void move(float forward, float left, float rotation_ccw);
     void stop();
     
     // individual motor control (for testing)
