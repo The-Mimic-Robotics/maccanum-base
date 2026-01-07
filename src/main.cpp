@@ -122,7 +122,7 @@ void loop() {
             // Pure ROS2 REP-103 passthrough (X=forward, Y=left, Z=CCW)
             robot.move(
                 currentTwist.linear_x * SPEED_MULTIPLIER,   // forward
-                currentTwist.linear_y * SPEED_MULTIPLIER,   // left
+                -currentTwist.linear_y * SPEED_MULTIPLIER,   // left
                 currentTwist.angular_z * SPEED_MULTIPLIER   // CCW rotation
             );
         }

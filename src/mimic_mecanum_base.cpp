@@ -199,9 +199,6 @@ EncoderManager::EncoderManager(float wheel_r, float width, float length, int ppr
     pos_x = 0.0;
     pos_y = 0.0;
     theta = 0.0;
-    vel_forward = 0.0;
-    vel_left = 0.0;
-    vel_omega = 0.0;
     last_time = 0;
 }
 
@@ -237,50 +234,56 @@ void EncoderManager::init() {
 
 void EncoderManager::update() {
     unsigned long current_time = millis();
-    float dt = (current_time - last_time) / 1000.0;
+    float dt = (current_time - last_time) / 1000.0;  // convert to seconds
     
-    if (dt < 0.001) return;
+    if (dt < 0.001) return;  // avoid division by very small numbers
     
-    // Read encoder counts and calculate wheel velocities
+    // Read encoder counts and calculate velocities
     for (int i = 0; i < 4; i++) {
         long current_count = encoders[i].getCount();
         
-        // Invert left side encoders (CCW for forward)
+        // Invert left side encoders (they spin opposite direction for forward motion)
+        // Left motors (FL=0, BL=2) spin CCW for forward, right motors (FR=1, BR=3) spin CW
         if (i == FRONT_LEFT || i == BACK_LEFT) {
             current_count = -current_count;
         }
         
         long delta_count = current_count - last_counts[i];
+        
+        // Calculate angular velocity (rad/s)
+        // velocity = (delta_ticks / ppr) * 2*PI / dt
         velocities[i] = (delta_count / (float)encoder_ppr) * TWO_PI / dt;
+        
         last_counts[i] = current_count;
     }
     
-    // Convert wheel velocities to linear velocities
+    // Calculate robot velocities using mecanum kinematics
+    // Convert wheel velocities to robot frame velocities
     float v_fl = velocities[FRONT_LEFT] * wheel_radius;
     float v_fr = velocities[FRONT_RIGHT] * wheel_radius;
     float v_bl = velocities[BACK_LEFT] * wheel_radius;
     float v_br = velocities[BACK_RIGHT] * wheel_radius;
     
-    // Mecanum inverse kinematics → Robot frame velocities
+    // Inverse mecanum kinematics
+    // vx = (v_fl - v_fr + v_bl - v_br) / 4  (strafe)
+    // vy = (v_fl + v_fr + v_bl + v_br) / 4  (forward)
+    // omega = (v_fl - v_fr + v_bl - v_br) / (4 * (L + W))
+    
     float L = wheelbase_length / 2.0;
     float W = wheelbase_width / 2.0;
     
-    float vx_strafe = (v_fl - v_fr - v_bl + v_br) / 4.0;  // strafe right+
-    float vy_forward = (v_fl + v_fr + v_bl + v_br) / 4.0; // forward+
-    float omega_ccw = (v_fl - v_fr + v_bl - v_br) / (4.0 * (L + W)); // CCW+
+    float vx = (v_fl - v_fr - v_bl + v_br) / 4.0;  // strafe (right positive)
+    float vy = (v_fl + v_fr + v_bl + v_br) / 4.0;  // forward
+    float omega = (v_fl - v_fr + v_bl - v_br) / (4.0 * (L + W));  // rotation
     
-    // Convert to ROS2 REP-103 (store these for odometry message)
-    vel_forward = vy_forward;    // ROS X = forward
-    vel_left = -vx_strafe;       // ROS Y = left (negate right-strafe)
-    vel_omega = omega_ccw;       // ROS Z = CCW (already correct)
-    
-    // Update global position
-    float vx_global = vel_forward * cos(theta) - vel_left * sin(theta);
-    float vy_global = vel_forward * sin(theta) + vel_left * cos(theta);
+    // Update odometry using robot velocities
+    // Transform to global frame
+    float vx_global = vx * cos(theta) - vy * sin(theta);
+    float vy_global = vx * sin(theta) + vy * cos(theta);
     
     pos_x += vx_global * dt;
     pos_y += vy_global * dt;
-    theta += vel_omega * dt;
+    theta += omega * dt;
     
     // Normalize theta to [-PI, PI]
     while (theta > PI) theta -= TWO_PI;
@@ -299,9 +302,6 @@ void EncoderManager::reset() {
     pos_x = 0.0;
     pos_y = 0.0;
     theta = 0.0;
-    vel_forward = 0.0;
-    vel_left = 0.0;
-    vel_omega = 0.0;
     last_time = millis();
     
     Serial.println("Encoders and odometry reset");
@@ -322,27 +322,43 @@ void EncoderManager::getOdometry(float &x, float &y, float &heading) {
 }
 
 void EncoderManager::getVelocities(float &vx, float &vy, float &omega) {
-    // Return stored ROS2 REP-103 velocities (calculated in update())
-    vx = vel_forward;  // X = forward
-    vy = vel_left;     // Y = left
-    omega = vel_omega; // Z = CCW
+    // Calculate velocities in mecanum math frame (vx=strafe_right+, vy=forward+)
+    float v_fl = velocities[FRONT_LEFT] * wheel_radius;
+    float v_fr = velocities[FRONT_RIGHT] * wheel_radius;
+    float v_bl = velocities[BACK_LEFT] * wheel_radius;
+    float v_br = velocities[BACK_RIGHT] * wheel_radius;
+    
+    float L = wheelbase_length / 2.0;
+    float W = wheelbase_width / 2.0;
+    
+    vx = (v_fl - v_fr - v_bl + v_br) / 4.0;  // strafe right
+    vy = (v_fl + v_fr + v_bl + v_br) / 4.0;  // forward
+    omega = (v_fl - v_fr + v_bl - v_br) / (4.0 * (L + W));  // CCW rotation
 }
 
 String EncoderManager::getOdometryString() {
     // Format: ODOM,x,y,theta,vx,vy,omega,enc1,enc2,enc3,enc4
-    // All values already in ROS2 REP-103 (calculated in update())
+    // Pure ROS2 REP-103: vx=forward, vy=left, omega=CCW
     
-    // Get encoder counts with left-side inversion
-    long enc1 = -encoders[0].getCount();  // FL
-    long enc2 = encoders[1].getCount();   // FR
-    long enc3 = -encoders[2].getCount();  // BL
-    long enc4 = encoders[3].getCount();   // BR
+    float vx_strafe, vy_forward, omega;
+    getVelocities(vx_strafe, vy_forward, omega);
+    
+    // Convert from mecanum math frame to ROS2 REP-103
+    float vx_ros = vy_forward;  // forward velocity
+    float vy_ros = -vx_strafe;  // left velocity (negate because mecanum math uses right+)
+    float omega_ros = omega;     // CCW rotation (already correct)
+    
+    // Get encoder counts with left-side inversion applied
+    long enc1 = -encoders[0].getCount();  // FL - inverted
+    long enc2 = encoders[1].getCount();   // FR - normal
+    long enc3 = -encoders[2].getCount();  // BL - inverted
+    long enc4 = encoders[3].getCount();   // BR - normal
     
     char buffer[256];
     snprintf(buffer, sizeof(buffer), 
              "ODOM,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%ld,%ld,%ld,%ld",
              pos_x, pos_y, theta,
-             vel_forward, vel_left, vel_omega,
+             vx_ros, vy_ros, omega_ros,
              enc1, enc2, enc3, enc4);
     
     return String(buffer);
@@ -463,6 +479,7 @@ void MecanumBase::calculateWheelSpeedsComplex(float forward, float left, float r
     // ROS2 REP-103 convention: forward, left, rotation_ccw
     float x = left;      // Convert to mecanum math frame
     float y = forward;
+    // HARDWARE CORRECTION: Motor wiring causes reversed rotation
     float rotation = -rotation_ccw;    // HARDWARE CORRECTION: Motor wiring causes reversed rotation
 
     

@@ -182,9 +182,25 @@ mecanum-base/
 └── platformio.ini                    # Build config
 ```
 
+## Odometry Implementation
+
+**Single-Pass Calculation:**
+1. `update()` runs at 20Hz
+2. Wheel velocities calculated from encoder deltas
+3. Mecanum inverse kinematics → robot frame
+4. **Convert to ROS2 once** → store in class members
+5. Position update using global transformation
+6. `getOdometryString()` formats stored values (no conversions)
+
+**Benefits:**
+- No redundant coordinate conversions
+- Single source of truth (`vel_forward`, `vel_left`, `vel_omega`)
+- Clean, maintainable code
+
 ## Features
 
 ✅ Pure ROS2 REP-103 (no conversions)  
+✅ Streamlined odometry (calculate once, store in ROS2 frame)  
 ✅ Hardware PCNT encoders (zero CPU overhead)  
 ✅ 20Hz real-time odometry  
 ✅ Safety timeout  
